@@ -1,4 +1,3 @@
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -7,26 +6,27 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const mongoURI = "mongodb+srv://contactglobaldynamic:Gg5pSJWuPjducRjJ@cluster0.2tt69.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+const mongoURI = process.env.MONGODB_URI || "mongodb+srv://contactglobaldynamic:Gg5pSJWuPjducRjJ@cluster0.2tt69.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 // Connect to MongoDB
-mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log("MongoDB Connected"))
-    .catch(err => console.log(err));
+mongoose
+  .connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("MongoDB Connected"))
+  .catch(err => console.log(err));
 
 // Models
 const User = mongoose.model("User", new mongoose.Schema({
     name: String,
     displayName: String,
-    email: String,
+    email: { type: String, unique: true },
     password: String,
-    profilePic: String,
+    profilePic: { type: String, default: 'https://picsum.photos/400/400?random=15' },
     phone: String,
     whatsapp: String,
     bio: String,
     joinedDate: String,
     location: String,
-    likes: Number
+    likes: { type: Number, default: 0 }
 }));
 
 const Listing = mongoose.model("Listing", new mongoose.Schema({
@@ -36,45 +36,77 @@ const Listing = mongoose.model("Listing", new mongoose.Schema({
     description: String,
     location: String,
     images: [String],
-    userId: mongoose.Schema.Types.ObjectId,
-    likes: Number,
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    likes: { type: Number, default: 0 },
     createdAt: String,
     category: String
 }));
 
 // Routes
+
+// Get all listings
 app.get('/listings', async (req, res) => {
-    const listings = await Listing.find();
-    res.json(listings);
+    try {
+        const listings = await Listing.find();
+        res.json(listings);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 });
 
+// Get all users
 app.get('/users', async (req, res) => {
-    const users = await User.find();
-    res.json(users);
+    try {
+        const users = await User.find();
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 });
 
+// Signup route
 app.post('/signup', async (req, res) => {
-    const { name, email, password } = req.body;
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: "Email already exists" });
+    try {
+        const { name, email, password } = req.body;
+        const existingUser = await User.findOne({ email });
+        if (existingUser) return res.status(400).json({ message: "Email already exists" });
 
-    const user = new User({ name, email, password, joinedDate: new Date().toISOString().split('T')[0] });
-    await user.save();
-    res.status(201).json(user);
+        const user = new User({ 
+            name, 
+            displayName: name, 
+            email, 
+            password, 
+            joinedDate: new Date().toISOString().split('T')[0] 
+        });
+        await user.save();
+        res.status(201).json(user);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 });
 
+// Login route
 app.post('/login', async (req, res) => {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email, password });
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email, password });
+        if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-    res.json(user);
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 });
 
+// Add new listing route
 app.post('/listings', async (req, res) => {
-    const listing = new Listing(req.body);
-    await listing.save();
-    res.status(201).json(listing);
+    try {
+        const listing = new Listing(req.body);
+        await listing.save();
+        res.status(201).json(listing);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 });
 
 // Start Server
